@@ -1,0 +1,15 @@
+-- Database: book
+
+-- DROP DATABASE book;
+
+CREATE DATABASE book
+    WITH 
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'English_United Kingdom.1252'
+    LC_CTYPE = 'English_United Kingdom.1252'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1;
+
+COMMENT ON DATABASE book
+    IS 'Book database for 7 databases in 7 weeks';
