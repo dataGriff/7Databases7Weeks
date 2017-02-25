@@ -8,23 +8,31 @@
 [MatchFull](https://www.postgresql.org/docs/9.3/static/sql-createtable.html)
 [SQLFormatter](https://sqlformat.org/)
 
+## Command line stuff
+
+* Open SQL Shell command line with postgres installation
+* to change connection
+```
+\connect databasename
+```
+* to see language configurations
+```
+\dF
+```
+* to see dictionary
+```
+ \dFd
+```
+
 # PGAdmin4
 
 * Click on SQL tab and any object gives SQL
-* Has CREATE or ALTER command
+* Has CREATE or REPLACE command
 * Dashboard for activity monitor
 * Dependencies and dependents of objects
 * Can edit properties with more tabs, one of which is generate SQL
 * Keeps history of queries automatically
 * when you execut equeries in a row they UNION together automatically in query output
-
-# Day 1
-
-## CRUD
-* Create, Read, Update and Delete
-* Relational database is different to others as can JOIN objects together
-* Really its relational and non-relational not SQL and non-SQL
-*
 
 # General
 * Syntax is case-sensitive by default
@@ -34,3 +42,15 @@
 * F7 and explain tab for query plan
 * Commenting is same as SQL -- and /* but only /* changes colour of syntax
 * Data output shows data types as well as col names
+* only shows latest result set if do two
+* stopwords found here C:\\Program Files\\PostgreSQL\\9.6\\share\\tsearch_data
+
+# Day 1
+
+## CRUD
+* Create, Read, Update and Delete
+* Relational database is different to others as can JOIN objects together
+
+# Day 2
+
+## Aggregates

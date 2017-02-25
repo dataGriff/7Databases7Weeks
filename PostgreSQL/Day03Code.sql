@@ -18,8 +18,8 @@ COMMENT ON DATABASE movies
     
     CREATE EXTENSION tablefunc;
     CREATE EXTENSION dict_xsyn;
-    CREATE EXTENSION fuzzystrmatch;
-    CREATE EXTENSION pg_trgm;
+    CREATE EXTENSION fuzzystrmatch; -- (levenshtein)
+    CREATE EXTENSION pg_trgm; -- (show_trigram)
     CREATE EXTENSION cube;
     
     
@@ -84,7 +84,139 @@ CREATE INDEX movies_title_pattern ON movies (lower(title) text_pattern_ops);
 -- can use varchar_pattern_ops etc for others
 
 -- Levenshtein
+-- How close values each character is to one and another
+
+SELECT levenshtein('vat','fads');
+
+-- 3 is score as two changed (+2) and one added (+1)
+-- 0 would mean same
+
+SELECT levenshtein('vat','fad') fad,
+levenshtein('bat','fat') fad,
+levenshtein('bat','bat')  bat;
+-- 2 1 0
+
+-- changes in case also cause a point so might want to convert to upper
+
+SELECT movie_id, title
+FROM movies
+WHERE levenshtein(lower(title), lower ('a hard day nght')) <= 3;
+
+-- 245,'A Hard Day's Night'
+
+-- Trigram 
+-- three consecutive chars from a string, as many as can
+
+SELECT show_trgm('Avatar');
+-- '["  a"," av","ar ","ata","ava","tar","vat"]'
+
+-- Create index specifallay for searching like this 
+
+CREATE INDEX movies_title_trigram ON movies
+USING gist (title gist_trgm_ops);
+
+-- aside - tried looking how to do variables.. hmmm
+SET foo.moviesearch = 'Avatre';
+SELECT show_trgm(current_setting('foo.moviesearch'));
+
+SELECT title, show_trgm(title),show_trgm(current_setting('foo.moviesearch'))
+FROM movies
+WHERE title % current_setting('foo.moviesearch');
+
+-- Full Text Searching
+
+-- TSVector and TSQuery
+
+-- first look at the default @@ behaviour
+
+SELECT title
+FROM movies
+WHERE title @@ 'night & day';
+
+/*
+-- note brings back those with apostrophes
+'A Hard Day's Night'
+'Six Days Seven Nights'
+'Long Day's Journey Into Night'
+*/
+
+-- which is equivalent to...
+
+SELECT title
+FROM movies
+WHERE TO_TSVECTOR(title) @@ TO_TSQUERY('english', 'night & day');
+
+-- splits into components called lexemes
+
+SELECT TO_TSVECTOR('A Hard Day''s Night')
+,TO_TSQUERY('english', 'night & day');
+
+-- ''day':3 'hard':2 'night':5',''night' & 'day''
+
+-- simple words are missed (e.g. a above)
+
+SELECT *
+FROM movies
+WHERE title @@ TO_TSQUERY('english', 'a');
+-- so now rows returned
 
 
+SELECT TO_TSVECTOR('english','A Hard Day''s Night');
+-- ''day':3 'hard':2 'night':5'
+SELECT TO_TSVECTOR('simple','A Hard Day''s Night');
+-- ''a':1 'day':3 'hard':2 'night':5 's':4'
+-- second one has simple words too
 
+-- Other Languages
+
+SELECT ts_lexize('english_stem', 'Day''s');
+-- '["day"]'
+
+SELECT to_tsvector('german', 'was machst du gerade?');
+-- ''gerad':4 'mach':2'
+
+-- Indexing Lexemes
+
+EXPLAIN
+SELECT *
+FROM movies
+WHERE title @@ 'night & day';
+
+/*
+'Seq Scan on movies  (cost=0.00..815.86 rows=3 width=171)'
+'  Filter: (title @@ 'night & day'::text)'
+*/
+
+-- seq scan on whole tale which is not good
+
+-- so create index...
+CREATE INDEX movies_title_searchable ON movies
+USING gin(to_tsvector('english', title));
+
+-- and plan becomes...
+EXPLAIN
+SELECT *
+FROM movies
+WHERE title @@ 'night & day';
+
+/*
+--nothing happened.. didnt use index
+
+'Seq Scan on movies  (cost=0.00..815.86 rows=3 width=171)'
+'  Filter: (title @@ 'night & day'::text)'
+*/
+
+-- now uses index
+-- EXPLAIN is good to ensure indexes are used
+EXPLAIN
+SELECT *
+FROM movies
+WHERE to_tsvector('english',title) @@ 'night & day';
+/*
+'Bitmap Heap Scan on movies  (cost=20.00..24.26 rows=1 width=171)'
+'  Recheck Cond: (to_tsvector('english'::regconfig, title) @@ '''night'' & ''day'''::tsquery)'
+'  ->  Bitmap Index Scan on movies_title_searchable  (cost=0.00..20.00 rows=1 width=0)'
+'        Index Cond: (to_tsvector('english'::regconfig, title) @@ '''night'' & ''day'''::tsquery)'
+
+*/
  
