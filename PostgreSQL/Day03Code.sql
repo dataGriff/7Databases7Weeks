@@ -219,4 +219,30 @@ WHERE to_tsvector('english',title) @@ 'night & day';
 '        Index Cond: (to_tsvector('english'::regconfig, title) @@ '''night'' & ''day'''::tsquery)'
 
 */
+
+-- Metafones
+
+-- Can search for things that sound the same...
+
+SELECT *
+FROM actors
+WHERE name = 'Broos Wils';
+
+-- trigram no good
+
+SELECT *
+FROM actors
+WHERE name %'Broos Wils'; 
+
+-- Metafone of Aaron Eckhart us ARNKHRT
+
+SELECT title
+FROM movies NATURAL JOIN movies_actors NATURAL JOIN actors
+WHERE metaphone(name,6) =  metaphone('Broos Wils',6);
+
+-- NATURAL JOIN matches on matching column names
+-- comes from fuzzystrmatch module which contains more...
+
+SELECT name, metaphone(name,8) , dmetaphone(name) , dmetaphone_ALT(name) , soundex(name)  
+FROM actors;
  
