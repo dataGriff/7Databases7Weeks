@@ -245,4 +245,152 @@ WHERE metaphone(name,6) =  metaphone('Broos Wils',6);
 
 SELECT name, metaphone(name,8) , dmetaphone(name) , dmetaphone_ALT(name) , soundex(name)  
 FROM actors;
+
+-- Cube
+-- Each value is point in 18 dimensional space
+-- Genre created earlier is cube as films have multiple genres
+
+SELECT 
+name, cube_ur_coord('(0,7,0,0,0,0,0,0,0,7,0,0,0,0,10,0,0,0)', position)  as score
+FROM genres g
+WHERE cube_ur_coord('(0,7,0,0,0,0,0,0,0,7,0,0,0,0,10,0,0,0)', position) > 0;
+
+/*
+'Adventure','7'
+'Fantasy','7'
+'SciFi','10'
+*/
+
+-- can look for films most similar to star wars...
+
+SELECT 
+*, cube_distance(genre,'(0,7,0,0,0,0,0,0,0,7,0,0,0,0,10,0,0,0)')  as dist
+FROM movies
+ORDER BY dist;
+
+/*
+1,'Star Wars','(0, 7, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 10, 0, 0, 0)','0'
+532,'Star Wars: Episode V - The Empire Strikes Back','(0, 7, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 2, 10, 0, 0, 0)','2'
+2862,'Avatar','(0, 7, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 5, 10, 0, 0, 0)','5'
+1357,'Explorers','(0, 5, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 5, 0, 0, 0)','5.74456264653803'
+696,'The Lost World','(0, 5, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 4, 0, 0, 0)','6.6332495807108'
+193,'E.T. The Extra-Terrestrial','(0, 5, 0, 0, 0, 0, 0, 5, 0, 5, 0, 0, 0, 0, 5, 0, 0, 0)','7.61577310586391'
+325,'Krull','(0, 5, 0, 0, 0, 0, 0, 5, 0, 5, 0, 0, 0, 0, 7, 0, 0, 0)','6.48074069840786'
+
+...
+*/
+
+-- simple example - 2d square
+-- cube_enlarge(cube, radius, dimensions)
+
+SELECT cube_enlarge ('(1,1)',1,2);
+
+/*
+'(0, 0),(2, 2)'
+*/
+
+-- so lookin got films within five units of an 18 dimension cube (Star wars)
+
+SELECT 
+title, cube_distance(genre,'(0,7,0,0,0,0,0,0,0,7,0,0,0,0,10,0,0,0)')  as dist
+FROM movies
+WHERE cube_enlarge('(0,7,0,0,0,0,0,0,0,7,0,0,0,0,10,0,0,0)'::cube,5,18) @> genre
+ORDER BY dist;
+
+/*
+'Star Wars','0'
+'Star Wars: Episode V - The Empire Strikes Back','2'
+'Avatar','5'
+'Explorers','5.74456264653803'
+'Krull','6.48074069840786'
+'E.T. The Extra-Terrestrial','7.61577310586391'
+*/
+
+-- can use subselect to get genre of movie rather than hard code like star wars above
+
+SELECT m.movie_id, m.title
+FROM movies m, (SELECT genre, title FROM movies WHERE title = 'Mad Max') s
+WHERE cube_enlarge(s.genre,5,18) @> m.genre AND s.title <> m.title
+ORDER BY cube_distance(m.genre, s.genre)
+LIMIT 10;
+
+/*
+1405,'Cyborg'
+1391,'Escape from L.A.'
+1192,'Mad Max Beyond Thunderdome'
+1189,'Universal Soldier'
+1222,'Soldier'
+1362,'Johnny Mnemonic'
+946,'Alive'
+418,'Escape from New York'
+1877,'The Last Starfighter'
+1445,'The Rocketeer'
+
+*/
+
+/*
+Homework Part 1
+Create Procedure wheere input movie or actor and returns top 5 suggestions based on
+movies actor has starred in or films with similar genres
+*/
+
+-- DROP FUNCTION move_suggest_top5(text,text); -- can't alter return type so have to drop
+CREATE OR REPLACE FUNCTION move_suggest_top5 (movietitle text DEFAULT '', actorname text DEFAULT '')
+RETURNS TABLE(
+    title text
+)
+AS $$
+
+BEGIN 
+IF movietitle <> '' THEN
+RETURN QUERY 
+
+      SELECT  m.title
+    FROM movies m , movies m2
+     WHERE (movietitle <> '' AND m2.title = movietitle AND m.title <> m2.title)
+     ORDER BY cube_distance(m.genre, m2.genre)
+    LIMIT 5;
+    END IF;
+    
+    IF actorname <> '' THEN
+RETURN QUERY 
+
+      SELECT  m.title
+    FROM movies m
+    JOIN movies_actors ma ON
+    ma.movie_id = m.movie_id
+    JOIN actors a ON
+    a.actor_id = ma.actor_id
+    WHERE a.name = actorname
+    LIMIT 5;
+    END IF;
+
+ END;
+ $$
+ 
+LANGUAGE 'plpgsql';
+
+    SELECT move_suggest_top5('Star Wars'); -- where multiple columns comes back in one column in brackets
+    SELECT * FROM  move_suggest_top5('Star Wars'); -- returns as result set
+       SELECT move_suggest_top5('','Bruce Willis'); -- where multiple columns comes back in one column in brackets
+     SELECT * FROM move_suggest_top5('','Bruce Willis'); -- returns as result set
+    
+
+/*
+Homework Part 2
+Expand movies database to track user comments and extract kewyords, cross reference
+with actors last names and find most talked about actors
+*/
+
+
+
+
+
+
+
+
+
+
+
+
  
